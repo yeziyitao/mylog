@@ -5,12 +5,12 @@
 
 ## 参考demo
 ```
-		mylog.Logger.Infof("new mylog done,update status ok: app=%+v, name=%+v", app, name)
-		mylog.Logger.Debugf("new mylog done,update status ok: app=%+v, name=%+v", app, name)
-		mylog.Logger.Warnf("new mylog done,update status ok: app=%+v, name=%+v", app, name)
-		mylog.Logger.Errorf("new mylog done,update status ok: app=%+v, name=%+v", app, name)
+mylog.Logger.Infof("new mylog done,update status ok: app=%+v, name=%+v", app, name)
+mylog.Logger.Debugf("new mylog done,update status ok: app=%+v, name=%+v", app, name)
+mylog.Logger.Warnf("new mylog done,update status ok: app=%+v, name=%+v", app, name)
+mylog.Logger.Errorf("new mylog done,update status ok: app=%+v, name=%+v", app, name)
 ```
-## 示例
+## 示例,实时修改日志级别，不重启实现按照日志级别输出
 Warn
 ```
 MB1:demo yezi$ go run main.go 
