@@ -1,4 +1,4 @@
-module github.com/yezi/mylog
+module github.com/yeziyitao/mylog
 
 go 1.14
 

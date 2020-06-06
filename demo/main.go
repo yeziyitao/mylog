@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/yezi/mylog"
+	"github.com/yeziyitao/mylog"
 )
 
 var (

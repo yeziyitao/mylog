@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/yezi/mylog/loger/color"
+	"github.com/yeziyitao/mylog/loger/color"
 )
 
 const logBufferSize = 1024

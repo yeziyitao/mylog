@@ -80,3 +80,11 @@
 {"level":"DEBUG","timestamp":"2020-06-06 10:35:14.378 +08:00","file":"demo/main.go:17","msg":"new mylog done,update status ok: app=mylog, name=test"}
 {"level":"WARN","timestamp":"2020-06-06 10:35:14.378 +08:00","file":"demo/main.go:18","msg":"new mylog done,update status ok: app=mylog, name=test"}
 {"level":"ERROR","timestamp":"2020-06-06 10:35:14.378 +08:00","file":"demo/main.go:19","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"INFO","timestamp":"2020-06-06 11:21:10.987 +08:00","file":"demo/main.go:16","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"DEBUG","timestamp":"2020-06-06 11:21:10.987 +08:00","file":"demo/main.go:17","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"WARN","timestamp":"2020-06-06 11:21:10.987 +08:00","file":"demo/main.go:18","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"ERROR","timestamp":"2020-06-06 11:21:10.987 +08:00","file":"demo/main.go:19","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"INFO","timestamp":"2020-06-06 11:21:13.991 +08:00","file":"demo/main.go:16","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"DEBUG","timestamp":"2020-06-06 11:21:13.991 +08:00","file":"demo/main.go:17","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"WARN","timestamp":"2020-06-06 11:21:13.991 +08:00","file":"demo/main.go:18","msg":"new mylog done,update status ok: app=mylog, name=test"}
+{"level":"ERROR","timestamp":"2020-06-06 11:21:13.991 +08:00","file":"demo/main.go:19","msg":"new mylog done,update status ok: app=mylog, name=test"}

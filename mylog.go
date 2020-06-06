@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-mesh/openlogging"
-	mylog "github.com/yezi/mylog/loger"
+	mylog "github.com/yeziyitao/mylog/loger"
 )
 
 // constant values for logrotate parameters
