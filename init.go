@@ -4,7 +4,6 @@ package mylog
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 
@@ -33,18 +32,21 @@ func InitLogger() {
 		if os.IsNotExist(err) {
 			Logger.Infof("[%s] not exist", "conf/mylog.yaml")
 		} else {
-			log.Panicln(err)
+			// log.Panicln(err)
+			Logger.Errorf("config error: %s", err)
 		}
 	} else {
 		Init(&Options{
-			Writers:        LoggerOptions.Writers,
-			LoggerLevel:    LoggerOptions.LoggerLevel,
-			RollingPolicy:  LoggerOptions.RollingPolicy,
-			LoggerFile:     LoggerOptions.LoggerFile,
-			LogFormatText:  LoggerOptions.LogFormatText,
-			LogRotateDate:  LoggerOptions.LogRotateDate,
-			LogRotateSize:  LoggerOptions.LogRotateSize,
-			LogBackupCount: LoggerOptions.LogBackupCount,
+			Writers:          LoggerOptions.Writers,
+			LoggerLevel:      LoggerOptions.LoggerLevel,
+			RollingPolicy:    LoggerOptions.RollingPolicy,
+			LoggerFile:       LoggerOptions.LoggerFile,
+			LogFormatText:    LoggerOptions.LogFormatText,
+			LoggerFileFormat: LoggerOptions.LoggerFileFormat,
+			LogRotateDate:    LoggerOptions.LogRotateDate,
+			LogRotateSize:    LoggerOptions.LogRotateSize,
+			LogBackupCount:   LoggerOptions.LogBackupCount,
+			ZipOn:            LoggerOptions.ZipOn,
 		})
 
 	}

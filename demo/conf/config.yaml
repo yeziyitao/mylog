@@ -1,6 +1,0 @@
-gormlog: false
-kafka_db:
-  name: DEV
-  addr: 127.0.0.1:3306
-  username: test 
-  password: test

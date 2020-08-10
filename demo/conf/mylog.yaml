@@ -1,25 +1,36 @@
+# 支持在线修改参数，不重启
+# 支持同时按照 文件大小 和 切割时间间隔 进行日志切割，支持秒级切割，文件大小按MB切割
+# 文件名路径 及 日志文件名格式支持自定义
+# 支持配置日志级别，日志可以输出到屏幕或者文件
+
+# writers: file,stdout 支持输出到stdout 和 file
 writers: file,stdout
+
 # LoggerLevel: |DEBUG|INFO|WARN|ERROR|FATAL
-logger_level: DEBUG
+#logger_level: DEBUG
 #logger_level: ERROR
-#logger_level: INFO
+logger_level: INFO
 #logger_level: WARN
 
 # LoggerFile: used to output the name of log.可配置绝对路径，也可以配置相对路径。
 logger_file: log/mylog.log
 
+# LoggerFileFormat: used to format log , 2006.01.02.15.04.05.000 .日志文件格式，需要按照go的时间格式进行设置如 2006-01-02_15:04:05 (支持 - ： 空格)
+# like log/mylog.log.2020-07-31_14:20:33
+logger_file_format: 2006-01-02_15:04:05
+
 # LogFormatText:设定日志的输出格式是 json 还是 plaintext (类似于log4j)，默认为 false，不建议修改，如果开发过程中想本地查看日志的话，
 # 可以设定 LoggerFile 和 LogFormatText 为 true，这样会输出类似于 log4j 格式的本地日志。
 log_format_text: false
 
-#rollingPolicy daily/size;用于配置根据时间，还是根据大小进行日志rotate操作。
-rollingPolicy: size
-
-# MaxDaily of a log file before rotate. By D Days.；日志rotate时间配置，单位"day"。
-log_rotate_date: 1
+# MaxDailyTime of a log file before rotate. by seconds；日志rotate时间配置，单位"seconds"。 切割时间间隔
+log_rotate_date: 3600
 
 # MaxSize of a log file before rotate. By M Bytes.；日志rotate文件大小配置，单位"MB"。
-log_rotate_size: 1024
+log_rotate_size: 10
 
 # Max counts to keep of a log's backup files.日志最大存储数量，单位“个”。
-log_backup_count: 7
+log_backup_count: 1000
+
+# ZipOn compress file or not ,support zip , defulat false.是否启用zip压缩，支持zip格式压缩文件或者不压缩 
+zip_on: false

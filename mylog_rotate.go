@@ -33,6 +33,12 @@ import (
 
 var pathReplacer *strings.Replacer
 
+// time interval , used to check rotateDate
+var timeInterval int
+
+// regExp mathch log file
+var regExp = `%s\.([\-]?[\_]?[\ ]?[\:]?[A-Za-z0-9]+)*$`
+
 // EscapPath escape path
 func EscapPath(msg string) string {
 	return pathReplacer.Replace(msg)
@@ -53,8 +59,7 @@ func removeFile(path string) error {
 	return nil
 }
 
-func removeExceededFiles(path string, baseFileName string,
-	maxKeptCount int, rotateStage string) {
+func removeExceededFiles(path string, baseFileName string, maxKeptCount int, rotateStage string) {
 	if maxKeptCount < 0 {
 		return
 	}
@@ -62,13 +67,16 @@ func removeExceededFiles(path string, baseFileName string,
 	var pat string
 	if rotateStage == "rollover" {
 		//rotated file, svc.log.20060102150405000
-		pat = fmt.Sprintf(`%s\.[0-9]{1,17}$`, baseFileName)
+		// pat = fmt.Sprintf(`%s\.[0-9]{1,17}$`, baseFileName)
+		pat = fmt.Sprintf(regExp, baseFileName)
 	} else if rotateStage == "backup" {
 		//backup compressed file, svc.log.20060102150405000.zip
-		pat = fmt.Sprintf(`%s\.[0-9]{17}\.zip$`, baseFileName)
+		// pat = fmt.Sprintf(`%s\.[0-9]{17}\.zip$`, baseFileName)
+		pat = fmt.Sprintf(`%s.*.zip$`, baseFileName)
 	} else {
 		return
 	}
+	// fmt.Println("removeExceededFiles pat:", pat)
 	fileList, err := FilterFileList(path, pat)
 	if err != nil {
 		Logger.Errorf("filepath.Walk() path: %s failed: %s", EscapPath(path), err)
@@ -94,7 +102,7 @@ func removeExceededFiles(path string, baseFileName string,
 //filePath: file full path, like ${_APP_LOG_DIR}/svc.log.1
 //fileBaseName: rollover file base name, like svc.log
 //replaceTimestamp: whether or not to replace the num. of a rolled file
-func compressFile(filePath, fileBaseName string, replaceTimestamp bool) error {
+func compressFile(filePath, fileBaseName string, replaceTimestamp bool, LoggerFileFormat string) error {
 	ifp, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -104,11 +112,12 @@ func compressFile(filePath, fileBaseName string, replaceTimestamp bool) error {
 	var zipFilePath string
 	if replaceTimestamp {
 		//svc.log.1 -> svc.log.20060102150405000.zip
-		zipFileBase := fileBaseName + "." + getTimeStamp() + "." + "zip"
+		zipFileBase := fileBaseName + "." + getTimeStamp(LoggerFileFormat) + "." + "zip"
 		zipFilePath = filepath.Dir(filePath) + "/" + zipFileBase
 	} else {
 		zipFilePath = filePath + ".zip"
 	}
+	// fmt.Println("++++++++++++++++++++zipFilePath:", zipFilePath)
 	zipFile, err := os.OpenFile(zipFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0440)
 	if err != nil {
 		return err
@@ -136,7 +145,14 @@ func compressFile(filePath, fileBaseName string, replaceTimestamp bool) error {
 	return nil
 }
 
-func shouldRollover(fPath string, MaxFileSize int) bool {
+func shouldRollover(fPath string, MaxFileSize int, RotateDate int) bool {
+	timeInterval++
+	// fmt.Println("timeInterval:", timeInterval)
+	if timeInterval >= RotateDate {
+		timeInterval = 0 //reset timeInterval
+		return true
+	}
+
 	if MaxFileSize < 0 {
 		return false
 	}
@@ -147,18 +163,20 @@ func shouldRollover(fPath string, MaxFileSize int) bool {
 		return false
 	}
 
+	// fmt.Println("MaxFileSize=", MaxFileSize)
 	if fileInfo.Size() > int64(MaxFileSize*1024*1024) {
 		return true
 	}
+
 	return false
 }
 
-func doRollover(fPath string, MaxFileSize int, MaxBackupCount int) {
-	if !shouldRollover(fPath, MaxFileSize) {
+func doRollover(fPath string, MaxFileSize int, MaxBackupCount int, RotateDate int, LoggerFileFormat string) {
+	if !shouldRollover(fPath, MaxFileSize, RotateDate) {
 		return
 	}
 
-	timeStamp := getTimeStamp()
+	timeStamp := getTimeStamp(LoggerFileFormat)
 	//absolute path
 	rotateFile := fPath + "." + timeStamp
 	err := CopyFile(fPath, rotateFile)
@@ -178,34 +196,42 @@ func doRollover(fPath string, MaxFileSize int, MaxBackupCount int) {
 	removeExceededFiles(filepath.Dir(fPath), filepath.Base(fPath), MaxBackupCount, "rollover")
 }
 
-func doBackup(fPath string, MaxBackupCount int) {
+func doBackup(fPath string, MaxBackupCount int, LoggerFileFormat string, ZipOn bool) {
 	if MaxBackupCount <= 0 {
 		return
 	}
-	pat := fmt.Sprintf(`%s\.[0-9]{1,17}$`, filepath.Base(fPath))
+	// pat := fmt.Sprintf(`%s\.[0-9]{1,17}$`, filepath.Base(fPath))
+	pat := fmt.Sprintf(regExp, filepath.Base(fPath))
 	rotateFileList, err := FilterFileList(filepath.Dir(fPath), pat)
+	// fmt.Println("====================pat", pat, rotateFileList)
 	if err != nil {
 		Logger.Errorf("walk path: %s failed: %s", EscapPath(fPath), err)
 		return
 	}
 
-	for _, file := range rotateFileList {
-		var err error
-		p := fmt.Sprintf(`%s\.[0-9]{17}$`, filepath.Base(fPath))
-		if ret, _ := regexp.MatchString(p, file); ret {
-			//svc.log.20060102150405000, not replace Timestamp
-			err = compressFile(file, filepath.Base(fPath), false)
-		} else {
-			//svc.log.1, replace Timestamp
-			err = compressFile(file, filepath.Base(fPath), true)
-		}
-		if err != nil {
-			openlogging.GetLogger().Errorf("compress path: %s failed: %s", EscapPath(file), err)
-			continue
-		}
-		err = removeFile(file)
-		if err != nil {
-			Logger.Errorf("remove path %s failed: %s", EscapPath(file), err)
+	// zipon to compress file
+	if ZipOn {
+		for _, file := range rotateFileList {
+			var err error
+			// p := fmt.Sprintf(`%s\.[0-9]{17}$`, filepath.Base(fPath))
+			p := fmt.Sprintf(regExp, filepath.Base(fPath))
+			if ret, _ := regexp.MatchString(p, file); ret {
+				//svc.log.20060102150405000, not replace Timestamp
+				// fmt.Println("compressFile if", file, filepath.Base(fPath), false, LoggerFileFormat)
+				err = compressFile(file, filepath.Base(fPath), false, LoggerFileFormat)
+			} else {
+				//svc.log.1, replace Timestamp
+				// fmt.Println("compressFile else", file, filepath.Base(fPath), false, LoggerFileFormat)
+				err = compressFile(file, filepath.Base(fPath), true, LoggerFileFormat)
+			}
+			if err != nil {
+				openlogging.GetLogger().Errorf("compress path: %s failed: %s", EscapPath(file), err)
+				continue
+			}
+			err = removeFile(file)
+			if err != nil {
+				Logger.Errorf("remove path %s failed: %s", EscapPath(file), err)
+			}
 		}
 	}
 
@@ -213,22 +239,22 @@ func doBackup(fPath string, MaxBackupCount int) {
 	removeExceededFiles(filepath.Dir(fPath), filepath.Base(fPath), MaxBackupCount, "backup")
 }
 
-func logRotateFile(file string, MaxFileSize int, MaxBackupCount int) {
+func logRotateFile(file string, MaxFileSize int, MaxBackupCount int, RotateDate int, LoggerFileFormat string, ZipOn bool) {
 	defer func() {
 		if e := recover(); e != nil {
 			Logger.Errorf("LogRotate file path: %s catch an exception.", EscapPath(file))
 		}
 	}()
 
-	doRollover(file, MaxFileSize, MaxBackupCount)
-	doBackup(file, MaxBackupCount)
+	doRollover(file, MaxFileSize, MaxBackupCount, RotateDate, LoggerFileFormat)
+	doBackup(file, MaxBackupCount, LoggerFileFormat, ZipOn)
 }
 
 // LogRotate function for log rotate
 // path:			where log files need rollover
 // MaxFileSize: 		MaxSize of a file before rotate. By M Bytes.
 // MaxBackupCount: 	Max counts to keep of a log's backup files.
-func LogRotate(path string, MaxFileSize int, MaxBackupCount int) {
+func LogRotate(path string, MaxFileSize int, MaxBackupCount int, RotateDate int, LoggerFileFormat string, ZipOn bool) {
 	//filter .log .trace files
 	defer func() {
 		if e := recover(); e != nil {
@@ -244,7 +270,7 @@ func LogRotate(path string, MaxFileSize int, MaxBackupCount int) {
 	}
 
 	for _, file := range fileList {
-		logRotateFile(file, MaxFileSize, MaxBackupCount)
+		logRotateFile(file, MaxFileSize, MaxBackupCount, RotateDate, LoggerFileFormat, ZipOn)
 	}
 }
 
@@ -276,8 +302,9 @@ func FilterFileList(path, pat string) ([]string, error) {
 }
 
 // getTimeStamp get time stamp
-func getTimeStamp() string {
-	now := time.Now().Format("2006.01.02.15.04.05.000")
+func getTimeStamp(LoggerFileFormat string) string {
+	// now := time.Now().Format("2006.01.02.15.04.05.000")
+	now := time.Now().Format(LoggerFileFormat)
 	timeSlot := strings.Replace(now, ".", "", -1)
 	return timeSlot
 }
@@ -294,6 +321,7 @@ func CopyFile(srcFile, dstFile string) error {
 
 // NewRotateConfig return config
 func NewRotateConfig(option *Options) *RotateConfig {
+	// fmt.Println("NewRotateConfig 1:", option)
 	rc := new(RotateConfig)
 	rc.BackupCount = LogBackupCount
 	if option.LogBackupCount > 0 {
@@ -303,6 +331,7 @@ func NewRotateConfig(option *Options) *RotateConfig {
 	rc.logFileDir = filepath.Dir(option.LoggerFile)
 	if option.RollingPolicy == RollingPolicySize {
 		rc.Size = LogRotateSize
+		// fmt.Println("option.LogRotateSize:", option.LogRotateSize)
 		if option.LogRotateSize > 0 {
 			rc.Size = option.LogRotateSize
 		}
@@ -312,7 +341,14 @@ func NewRotateConfig(option *Options) *RotateConfig {
 		if option.LogRotateDate > 1 {
 			rc.CheckCycle = 24 * time.Hour * time.Duration(option.LogRotateDate)
 		}
+		if option.LogRotateSize > 0 {
+			rc.Size = option.LogRotateSize
+		}
 	}
+	rc.RotateDate = option.LogRotateDate
+	rc.LoggerFileFormat = option.LoggerFileFormat
+	rc.ZipOn = option.ZipOn
+	// fmt.Println("NewRotateConfig 2:", rc)
 	return rc
 }
 
@@ -328,18 +364,20 @@ type rotators struct {
 
 // RotateConfig rotate config
 type RotateConfig struct {
-	logFilePath string
-	logFileDir  string
-	Policy      string
-	Size        int
-	BackupCount int
-	CheckCycle  time.Duration
-
-	RotateDate int
+	logFilePath      string
+	logFileDir       string
+	LoggerFileFormat string
+	Policy           string
+	Size             int
+	BackupCount      int
+	CheckCycle       time.Duration
+	ZipOn            bool
+	RotateDate       int
 }
 
 // Rotate rotate log
 func (r *rotators) Rotate(rc *RotateConfig) {
+	// fmt.Println("Rotate 1:", rc)
 	r.locker.Lock()
 	defer r.locker.Unlock()
 	if _, exist := r.logFilePaths[rc.logFileDir]; exist {
@@ -347,11 +385,13 @@ func (r *rotators) Rotate(rc *RotateConfig) {
 	}
 
 	r.logFilePaths[rc.logFilePath] = rc
+	// fmt.Println("Rotate 2:", rc)
 
 	go func() {
 		// openlogging.Info("start log rotate task")
 		for {
-			LogRotate(rc.logFileDir, rc.Size, rc.BackupCount)
+			// fmt.Println("rc.logFileDir, rc.Size, rc.BackupCount  rc.RotateDate  rc.LoggerFileFormat rc.ZipOn:", rc.logFileDir, rc.Size, rc.BackupCount, rc.RotateDate, rc.LoggerFileFormat, rc.ZipOn)
+			LogRotate(rc.logFileDir, rc.Size, rc.BackupCount, rc.RotateDate, rc.LoggerFileFormat, rc.ZipOn)
 			time.Sleep(rc.CheckCycle)
 		}
 	}()

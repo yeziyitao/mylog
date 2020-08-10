@@ -2,20 +2,19 @@ package mylog
 
 import (
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-mesh/openlogging"
-	mylog "github.com/yeziyitao/mylog/loger"
+	"github.com/yeziyitao/mylog/loger"
 )
 
 // constant values for logrotate parameters
 const (
-	LogRotateDate     = 1
-	LogRotateSize     = 10
-	LogBackupCount    = 7
+	LogRotateDate     = 86400
+	LogRotateSize     = 100
+	LogBackupCount    = 100
 	RollingPolicySize = "size"
 )
 
@@ -35,25 +34,26 @@ const (
 	File   = "file"
 )
 
-//Logger is the global variable for the object of mylog.Logger
+//Logger is the global variable for the object of loger.Logger
 //Deprecated. plz use openlogging instead
-var Logger mylog.Logger
+var Logger loger.Logger
 
 // logFilePath log file path
 var logFilePath string
 
-//Options is the struct for mylog information(mylog.yaml)
+//Options is the struct for loger information(loger.yaml)
 type Options struct {
-	Writers        string `yaml:"writers"`
-	LoggerLevel    string `yaml:"logger_level"`
-	LoggerFile     string `yaml:"logger_file"`
-	LogFormatText  bool   `yaml:"log_format_text"`
-	RollingPolicy  string `yaml:"rollingPolicy"`
-	LogRotateDate  int    `yaml:"log_rotate_date"`
-	LogRotateSize  int    `yaml:"log_rotate_size"`
-	LogBackupCount int    `yaml:"log_backup_count"`
-
-	AccessLogFile string `yaml:"access_log_file"`
+	Writers          string `yaml:"writers"`
+	LoggerLevel      string `yaml:"logger_level"`
+	LoggerFile       string `yaml:"logger_file"`
+	LogFormatText    bool   `yaml:"log_format_text"`
+	LoggerFileFormat string `yaml:"logger_file_format"`
+	RollingPolicy    string `yaml:"rollingPolicy"`
+	LogRotateDate    int    `yaml:"log_rotate_date"`
+	LogRotateSize    int    `yaml:"log_rotate_size"`
+	LogBackupCount   int    `yaml:"log_backup_count"`
+	ZipOn            bool   `yaml:"zip_on"`
+	AccessLogFile    string `yaml:"access_log_file"`
 }
 
 // Init Build constructs a *Lager.Logger with the configured parameters.
@@ -61,25 +61,25 @@ func Init(option *Options) {
 	var err error
 	Logger, err = NewLog(option)
 	if err != nil {
-		panic(err)
+		openlogging.Error("invalid log level:")
 	}
 	openlogging.SetLogger(Logger)
 	// openlogging.Debug("logger init success")
 	return
 }
 
-func toLogLevel(option string) (mylog.LogLevel, error) {
-	logLevel := mylog.DEBUG
+func toLogLevel(option string) (loger.LogLevel, error) {
+	logLevel := loger.DEBUG
 	switch option {
 	case LevelDebug:
 	case LevelInfo:
-		logLevel = mylog.INFO
+		logLevel = loger.INFO
 	case LevelWarn:
-		logLevel = mylog.WARN
+		logLevel = loger.WARN
 	case LevelError:
-		logLevel = mylog.ERROR
+		logLevel = loger.ERROR
 	case LevelFatal:
-		logLevel = mylog.FATAL
+		logLevel = loger.FATAL
 	default:
 		return 0, errors.New("invalid log level, valid: DEBUG, INFO, WARN, ERROR, FATAL")
 	}
@@ -100,7 +100,7 @@ func toFile(writer string) (*os.File, error) {
 }
 
 // NewLog returns a logger
-func NewLog(option *Options) (mylog.Logger, error) {
+func NewLog(option *Options) (loger.Logger, error) {
 	checkPassLagerDefinition(option)
 
 	localPath := ""
@@ -115,7 +115,7 @@ func NewLog(option *Options) (mylog.Logger, error) {
 	logFilePath = filepath.Join(localPath, option.LoggerFile)
 	writers := strings.Split(strings.TrimSpace(option.Writers), ",")
 
-	logger := mylog.NewLoggerExt(logFilePath, option.LogFormatText)
+	logger := loger.NewLoggerExt(logFilePath, option.LogFormatText)
 	option.LoggerFile = logFilePath
 
 	logLevel, err := toLogLevel(option.LoggerLevel)
@@ -128,43 +128,50 @@ func NewLog(option *Options) (mylog.Logger, error) {
 		if err != nil {
 			return nil, err
 		}
-		sink := mylog.NewReconfigurableSink(mylog.NewWriterSink(writer, f, mylog.DEBUG), logLevel)
+		sink := loger.NewReconfigurableSink(loger.NewWriterSink(writer, f, loger.DEBUG), logLevel)
 		logger.RegisterSink(sink)
 	}
-
+	// fmt.Println("NewRotateConfig.option:", option)
 	Rotators.Rotate(NewRotateConfig(option))
+
+	// fmt.Println("--logger--", logger)
 	return logger, nil
 }
 
-// checkPassLagerDefinition check pass mylog definition
+// checkPassLagerDefinition check pass loger definition
 func checkPassLagerDefinition(option *Options) {
+	// fmt.Println("checkPassLagerDefinition>>>>>>>>>>>>>>>>>>>>>>:", option)
+	// if option.LoggerLevel == "" || option.LoggerLevel != "DEBUG" || option.LoggerLevel != "INFO" || option.LoggerLevel != "WARN" || option.LoggerLevel != "ERROR" || option.LoggerLevel != "FATAL" {
 	if option.LoggerLevel == "" {
-		option.LoggerLevel = "DEBUG"
+		option.LoggerLevel = "INFO"
+	}
+	_, err := toLogLevel(option.LoggerLevel)
+	if err != nil {
+		openlogging.Error("invalid log level: " + option.LoggerLevel + ", use defalut INFO")
+		option.LoggerLevel = "INFO"
 	}
 
 	if option.LoggerFile == "" {
 		option.LoggerFile = "log/mylog.log"
 	}
 
-	if option.RollingPolicy == "" {
-		log.Println("RollingPolicy is empty, use default policy[size]")
-		option.RollingPolicy = RollingPolicySize
-	} else if option.RollingPolicy != "daily" && option.RollingPolicy != RollingPolicySize {
-		log.Printf("RollingPolicy is error, RollingPolicy=%s, use default policy[size].", option.RollingPolicy)
-		option.RollingPolicy = RollingPolicySize
+	if option.LoggerFileFormat == "" {
+		option.LoggerFileFormat = "2006.01.02_15.04.05"
 	}
 
-	if option.LogRotateDate <= 0 || option.LogRotateDate > 10 {
+	if option.LogRotateDate <= 0 {
 		option.LogRotateDate = LogRotateDate
 	}
 
-	if option.LogRotateSize <= 0 || option.LogRotateSize > 50 {
+	if option.LogRotateSize <= 0 {
 		option.LogRotateSize = LogRotateSize
 	}
 
-	if option.LogBackupCount < 0 || option.LogBackupCount > 100 {
+	if option.LogBackupCount < 0 {
 		option.LogBackupCount = LogBackupCount
 	}
+
+	// fmt.Println("option:", option)
 }
 
 // createLogFile create log file

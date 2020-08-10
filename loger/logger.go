@@ -2,12 +2,13 @@ package loger
 
 import (
 	"fmt"
-	"github.com/go-mesh/openlogging"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/go-mesh/openlogging"
 )
 
 //StackTraceBufferSize is a constant which defines stack track buffer size
@@ -116,7 +117,6 @@ func (l *logger) SetLogLevel(level LogLevel) {
 		}
 	}
 }
-
 
 // Find the sink need to log
 func (l *logger) activeSinks(loglevel LogLevel) []Sink {
@@ -276,6 +276,10 @@ func addExtLogInfo(logf *LogFormat, depth int) {
 		_, file, line, ok := runtime.Caller(depth + i)
 
 		if strings.Index(file, "logger.go") > 0 {
+			continue
+		}
+
+		if strings.Index(file, "interface.go") > 0 {
 			continue
 		}
 
