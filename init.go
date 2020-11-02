@@ -32,7 +32,6 @@ func InitLogger() {
 		if os.IsNotExist(err) {
 			Logger.Infof("[%s] not exist", "conf/mylog.yaml")
 		} else {
-			// log.Panicln(err)
 			Logger.Errorf("config error: %s", err)
 		}
 	} else {
@@ -73,8 +72,17 @@ func unmarshalYamlFile(file string, target interface{}) error {
 
 // addMyLogEventListener watch mylog.yaml erver second
 func addMyLogEventListener() {
+	oldFileInfo, _ := os.Stat("conf/mylog.yaml")
+	oldTime := oldFileInfo.ModTime()
 	for {
-		InitLogger()
+		newFileInfo, _ := os.Stat("conf/mylog.yaml")
+		newTime := newFileInfo.ModTime()
+		if oldTime != newTime {
+			Logger.Infof("found [%s] updated,reload config file", "conf/mylog.yaml")
+			InitLogger()
+			oldTime = newTime
+		}
+
 		time.Sleep(time.Duration(1 * time.Second))
 	}
 }
